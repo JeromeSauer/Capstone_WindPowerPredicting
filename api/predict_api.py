@@ -30,8 +30,9 @@ def load_data_day(data_path=DATA_PATH, day='', zone = -1):
 
         if 'TIMESTAMP' not in features:
             features.append('TIMESTAMP')
+        data_wind = data[['ZONEID','TIMESTAMP', 'WS100', 'WD100']]
         data = data[features]
-        return data
+        return data, data_wind
     except OSError as err:
         print(' Cannot load data file.')
         print("OS error: {0}".format(err))
@@ -64,14 +65,16 @@ def make_prediction(day='', modelpath=MODEL_PATH, zone=-1):
     #     pred = [[h, x] for h,x in zip(range(0,24), pred)]
     #     pred.insert(0, zone)
 
-    
+    data_wind = None
     df_pred = pd.DataFrame()
     for zone in range(1,11):
-        data = load_data_day(DATA_PATH, day, zone)
+        data, data_wind_temp = load_data_day(DATA_PATH, day, zone)
         if zone==1:
             df_pred = data.copy(deep=True)
+            data_wind = data_wind_temp.copy(deep=True)
             df_pred.reset_index(inplace=True)
             df_pred = pd.DataFrame(df_pred['TIMESTAMP'])
+        data_wind = pd.concat([data_wind, data_wind_temp], axis=0)
         data.drop(['TIMESTAMP'], axis=1, inplace=True)
         temp = model.predict(data)
         temp = [1 if x>1 else 0 if x<0  else x for x in temp] 
@@ -79,11 +82,12 @@ def make_prediction(day='', modelpath=MODEL_PATH, zone=-1):
         temp = pd.Series(temp, name='Zone '+str(zone))
         df_pred = pd.concat([df_pred, temp], axis=1)
 
-    return df_pred
+    return df_pred, data_wind
 
 if __name__ == "__main__":
     day='2013-01-01'
-    data = load_data_day(DATA_PATH, day)
-    pred = make_prediction(day)
+    data, _ = load_data_day(DATA_PATH, day)
+    pred, data_wind = make_prediction(day)
     #print(f'prediction for day {day}: {pred}')
     print(pred.head())
+    print(data_wind)
